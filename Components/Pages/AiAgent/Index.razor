@@ -1,0 +1,54 @@
+@page "/ai-agents"
+@rendermode InteractiveServer
+@inject IAiAgentRepository AgentRepo
+
+<PageTitle>AiAgents</PageTitle>
+
+<h1>Ai Agents</h1>
+
+<p>
+    <a href="ai-agents/create" class="btn btn-primary">Create New</a>
+</p>
+
+@if (agents is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Model</th>
+                <th>Active</th>
+                <th>Created</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var agent in agents)
+            {
+                <tr>
+                    <td>@agent.Name</td>
+                    <td>@agent.Model</td>
+                    <td>@agent.IsActive</td>
+                    <td>@agent.CreatedAt.ToShortDateString()</td>
+                    <td>
+                        <a href="ai-agents/edit/@agent.Id" class="btn btn-sm btn-warning">Edit</a>
+                        <a href="ai-agents/delete/@agent.Id" class="btn btn-sm btn-danger">Delete</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<AiAgent>? agents;
+
+    protected override async Task OnInitializedAsync()
+    {
+        agents = await AgentRepo.GetAllAsync();
+    }
+}

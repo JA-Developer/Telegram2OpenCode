@@ -1,0 +1,49 @@
+@page "/ai-agents/create"
+@rendermode InteractiveServer
+@inject IAiAgentRepository AgentRepo
+@inject NavigationManager Navigation
+
+<PageTitle>Create AiAgent</PageTitle>
+
+<h1>Create Ai Agent</h1>
+
+<EditForm Model="@dto" OnValidSubmit="HandleSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" />
+
+    <div class="mb-3">
+        <label for="name" class="form-label">Name</label>
+        <InputText id="name" class="form-control" @bind-Value="dto.Name" />
+        <ValidationMessage For="@(() => dto.Name)" class="text-danger" />
+    </div>
+
+    <div class="mb-3">
+        <label for="model" class="form-label">Model</label>
+        <InputText id="model" class="form-control" @bind-Value="dto.Model" />
+        <ValidationMessage For="@(() => dto.Model)" class="text-danger" />
+    </div>
+
+    <div class="mb-3">
+        <label for="description" class="form-label">Description</label>
+        <InputTextArea id="description" class="form-control" @bind-Value="dto.Description" />
+    </div>
+
+    <div class="mb-3">
+        <label for="systemPrompt" class="form-label">System Prompt</label>
+        <InputTextArea id="systemPrompt" class="form-control" @bind-Value="dto.SystemPrompt" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Create</button>
+    <a href="ai-agents" class="btn btn-secondary">Cancel</a>
+</EditForm>
+
+@code {
+    private readonly CreateAiAgentDto dto = new();
+
+    private async Task HandleSubmit()
+    {
+        var entity = dto.ToEntity();
+        await AgentRepo.CreateAsync(entity);
+        Navigation.NavigateTo("ai-agents");
+    }
+}
