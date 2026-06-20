@@ -8,29 +8,36 @@ A Blazor web application that bridges Telegram bots with the [OpenCode](https://
 - **Automatic sync** — Bots marked as `Running` in the database are automatically started; removing the flag stops them
 - **OpenCode integration** — Each chat session creates an OpenCode conversation and forwards messages
 - **CRUD management** — Web UI to create, edit, and delete AI agents and Telegram bots
+- **Chat session state machine** — Supports initial menu, chat mode, session selection, and folder opening
+- **AI-powered folder lookup** — Describe a folder in natural language and the app finds the path via OpenCode
+- **Typing indicator** — Sends `ChatAction.Typing` while processing messages
 - **Soft delete** — All entities support soft deletion with `DeletedAt`
 - **SQLite database** — Lightweight, zero-configuration storage
+- **Modern UI** — Clean Bootstrap 5 interface with inline SVG icons and hover effects
 
 ## Architecture
 
 ```
 Telegram2OpenCode/
-├── Components/          # Blazor UI components
+├── Components/              # Blazor UI components
 │   ├── Pages/
-│   │   ├── AiAgent/     # CRUD pages for AI agents
-│   │   └── TelegramBot/ # CRUD pages for Telegram bots
-│   └── Layout/          # Main layout and navigation
-├── Data/                # EF Core DbContext
-├── DTOs/                # Data transfer objects with validation
-│   └── Mapping/         # Entity ↔ DTO mapping
-├── Migrations/          # EF Core migrations
-├── Models/              # Entity models
-├── Repositories/        # Data access layer
+│   │   ├── AiAgent/         # CRUD pages for AI agents
+│   │   ├── TelegramBot/     # CRUD pages for Telegram bots
+│   │   └── Home.razor       # Landing page
+│   └── Layout/              # Main layout and navigation
+├── Data/                    # EF Core DbContext
+├── DTOs/                    # Data transfer objects with validation
+│   └── Mapping/             # Entity ↔ DTO mapping
+├── Migrations/              # EF Core migrations
+├── Models/                  # Entity models (AiAgent, TelegramBot, ChatSessionEntity)
+├── Repositories/            # Data access layer (IAiAgentRepository, ITelegramBotRepository, IChatSessionRepository)
 ├── Services/
-│   ├── BotService.cs    # Singleton hosted service managing bot clients
-│   └── OpenCodeManager.cs  # OpenCode API client
-└── TelegramChatManager/ # Chat session state machine
-    ├── ChatState.cs     # Finite state machine enum
+│   ├── BotService.cs        # Singleton hosted service managing bot clients
+│   ├── OpenCodeManager.cs   # OpenCode REST API client
+│   ├── OpenCodeRunner.cs    # CLI wrapper for the opencode executable
+│   └── VibeUtils.cs         # AI-powered folder path resolution
+└── TelegramChatManager/     # Chat session state machine
+    ├── ChatState.cs         # Finite state machine enum
     └── TelegramChatSession.cs
 ```
 
@@ -86,15 +93,18 @@ Telegram2OpenCode/
 6. **Add a Telegram bot**
 
    - Open the web UI at `https://localhost:5001`
-   - Navigate to **Telegram Bots** → **Create New**
+   - Navigate to **Telegram Bots** → **Create Bot**
    - Enter your bot's name, username, and token from BotFather
-   - Check **Running** to start the bot immediately
+   - Toggle **Start running immediately** to start the bot
 
 7. **Chat with your bot**
 
    - Open Telegram and message your bot
-   - Send `1` to enter Chat mode
-   - The bot creates an OpenCode session and forwards your messages
+   - Send `/start` to see the menu
+   - `1` — Create new session and enter Chat mode
+   - `2` — Pick an existing OpenCode session
+   - `3` — Describe a folder to open (e.g. "my projects folder")
+   - In Chat mode, any message is forwarded to OpenCode and the reply is sent back
 
 ## API Endpoints (OpenCode)
 
@@ -116,7 +126,7 @@ All settings are in `appsettings.json`:
 
 ## Stack
 
-- **Frontend**: Blazor Server with Interactive Server rendering
+- **Frontend**: Blazor Server with Interactive Server rendering, Bootstrap 5, inline SVG icons
 - **Backend**: ASP.NET Core, Entity Framework Core
 - **Database**: SQLite
 - **Bot Library**: [Telegram.Bot](https://github.com/TelegramBots/Telegram.Bot) (v22)
