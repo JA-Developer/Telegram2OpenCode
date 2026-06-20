@@ -30,7 +30,7 @@ public sealed class OpenCodeRunner
             });
 
             await Cli.Wrap("opencode")
-                .WithArguments(new[] { "run", "--agent", "plan", "--format", "json", argument ?? string.Empty })
+                .WithArguments(new[] { "run", "--agent", "plan", "--pure", "--format", "json", argument ?? string.Empty })
                 .WithEnvironmentVariables(new Dictionary<string, string?>
                 {
                     ["OPENCODE_PERMISSION"] = permissions

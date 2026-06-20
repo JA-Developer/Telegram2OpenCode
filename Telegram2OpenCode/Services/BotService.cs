@@ -114,10 +114,15 @@ public sealed class BotService : IHostedService, IDisposable
         var chatId = message.Chat.Id;
         var chatType = message.Chat.Type;
 
+        var cleaned = text.Trim().ToLowerInvariant();
+
         if (chatType is ChatType.Group or ChatType.Supergroup)
         {
             if (!text.Contains($"@{botUsername}", StringComparison.OrdinalIgnoreCase))
                 return;
+
+            cleaned = cleaned.Replace($"@{botUsername}", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Trim();
         }
 
         await botClient.SendChatAction(chatId, ChatAction.Typing, cancellationToken: cancellationToken);
@@ -129,9 +134,7 @@ public sealed class BotService : IHostedService, IDisposable
 
         if (session.State == ChatState.InitialMenu)
         {
-            var withoutMention = text.Replace($"@{botUsername}", "", StringComparison.OrdinalIgnoreCase).Trim();
-            var trimmedWithoutMention = withoutMention.Trim();
-            if (trimmedWithoutMention.StartsWith("/start", StringComparison.OrdinalIgnoreCase) || withoutMention.StartsWith("/help", StringComparison.OrdinalIgnoreCase))
+            if (cleaned.StartsWith("/start", StringComparison.OrdinalIgnoreCase) || cleaned.StartsWith("/help", StringComparison.OrdinalIgnoreCase))
             {
                 await botClient.SendMessage(
                     chatId: chatId,
@@ -140,8 +143,6 @@ public sealed class BotService : IHostedService, IDisposable
                 );
                 return;
             }
-
-            var cleaned = text.Trim().ToLowerInvariant();
 
             switch (cleaned)
             {
