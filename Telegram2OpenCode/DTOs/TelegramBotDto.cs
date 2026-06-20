@@ -6,18 +6,18 @@ public class TelegramBotDto
 {
     public int Id { get; set; }
 
-    [Required(ErrorMessage = "El nombre es obligatorio")]
-    [MaxLength(100, ErrorMessage = "El nombre no puede exceder 100 caracteres")]
+    [Required(ErrorMessage = "Name is required")]
+    [MaxLength(100, ErrorMessage = "Name cannot exceed 100 characters")]
     public string Name { get; set; } = string.Empty;
 
-    [MaxLength(50, ErrorMessage = "El username no puede exceder 50 caracteres")]
+    [MaxLength(50, ErrorMessage = "Username cannot exceed 50 characters")]
     public string? Username { get; set; }
 
-    [Required(ErrorMessage = "El token es obligatorio")]
-    [MaxLength(200, ErrorMessage = "El token no puede exceder 200 caracteres")]
+    [Required(ErrorMessage = "Token is required")]
+    [MaxLength(200, ErrorMessage = "Token cannot exceed 200 characters")]
     public string Token { get; set; } = string.Empty;
 
-    [MaxLength(500, ErrorMessage = "El mensaje de bienvenida no puede exceder 500 caracteres")]
+    [MaxLength(500, ErrorMessage = "Welcome message cannot exceed 500 characters")]
     public string? WelcomeMessage { get; set; }
 
     public bool IsActive { get; set; }

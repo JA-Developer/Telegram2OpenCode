@@ -73,11 +73,11 @@ public sealed class BotService : IHostedService, IDisposable
                     cancellationToken: _cts.Token
                 );
                 _bots[bot.Id] = client;
-                Console.WriteLine($"Bot '{bot.Name}' iniciado.");
+                Console.WriteLine($"Bot '{bot.Name}' started.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al iniciar bot '{bot.Name}': {ex.Message}");
+                Console.WriteLine($"Error starting bot '{bot.Name}': {ex.Message}");
             }
         }
 
@@ -88,7 +88,7 @@ public sealed class BotService : IHostedService, IDisposable
 
             if (_bots.TryRemove(kvp.Key, out var client))
             {
-                Console.WriteLine($"Bot ID {kvp.Key} detenido.");
+                Console.WriteLine($"Bot ID {kvp.Key} stopped.");
             }
         }
     }
@@ -124,7 +124,7 @@ public sealed class BotService : IHostedService, IDisposable
             {
                 await botClient.SendMessage(
                     chatId: chatId,
-                    text: "Bienvenido. Selecciona una opción:\n1. Nueva Sesión\n2. Sesiones Existentes\n3. Abrir Folder",
+                    text: "Welcome. Select an option:\n1. New Session\n2. Existing Sessions\n3. Open Folder",
                     cancellationToken: cancellationToken
                 );
                 return;
@@ -145,7 +145,7 @@ public sealed class BotService : IHostedService, IDisposable
                     {
                         await botClient.SendMessage(
                             chatId: chatId,
-                            text: $"Error al crear sesión en OpenCode: {ex.Message}",
+                            text: $"Error creating session in OpenCode: {ex.Message}",
                             cancellationToken: cancellationToken
                         );
                         return;
@@ -156,7 +156,7 @@ public sealed class BotService : IHostedService, IDisposable
 
                     await botClient.SendMessage(
                         chatId: chatId,
-                        text: "Has entrado en modo Chat. Escribe algo y lo reenviaré a OpenCode.",
+                        text: "You've entered Chat mode. Send a message and I'll forward it to OpenCode.",
                         cancellationToken: cancellationToken
                     );
                     break;
@@ -171,7 +171,7 @@ public sealed class BotService : IHostedService, IDisposable
                     {
                         await botClient.SendMessage(
                             chatId: chatId,
-                            text: $"Error al obtener sesiones: {ex.Message}",
+                            text: $"Error fetching sessions: {ex.Message}",
                             cancellationToken: cancellationToken
                         );
                         break;
@@ -181,7 +181,7 @@ public sealed class BotService : IHostedService, IDisposable
                     {
                         await botClient.SendMessage(
                             chatId: chatId,
-                            text: "No hay sesiones disponibles. Usa la opción 1 para crear una nueva.",
+                            text: "No sessions available. Use option 1 to create a new one.",
                             cancellationToken: cancellationToken
                         );
                         break;
@@ -192,7 +192,7 @@ public sealed class BotService : IHostedService, IDisposable
                     await sessionRepo.UpdateAsync(session);
 
                     var sb = new StringBuilder();
-                    sb.AppendLine("Selecciona una sesión:");
+                    sb.AppendLine("Select a session:");
                     for (int i = 0; i < sessions.Count; i++)
                     {
                         var title = string.IsNullOrEmpty(sessions[i].Title) ? sessions[i].Id : sessions[i].Title;
@@ -211,7 +211,7 @@ public sealed class BotService : IHostedService, IDisposable
                     await sessionRepo.UpdateAsync(session);
                     await botClient.SendMessage(
                         chatId: chatId,
-                        text: "Describe la carpeta que quieres abrir (ej: 'la carpeta de descargas' o 'mi proyecto en documentos'):",
+                        text: "Describe the folder you want to open (e.g. 'the downloads folder' or 'my project in documents'):",
                         cancellationToken: cancellationToken
                     );
                     break;
@@ -231,7 +231,7 @@ public sealed class BotService : IHostedService, IDisposable
 
                 await botClient.SendMessage(
                     chatId: chatId,
-                    text: "Sesión seleccionada. Escribe algo y lo reenviaré a OpenCode.",
+                    text: "Session selected. Send a message and I'll forward it to OpenCode.",
                     cancellationToken: cancellationToken
                 );
             }
@@ -239,7 +239,7 @@ public sealed class BotService : IHostedService, IDisposable
             {
                 await botClient.SendMessage(
                     chatId: chatId,
-                    text: "Opción inválida. Por favor, selecciona un número de la lista.",
+                    text: "Invalid option. Please select a number from the list.",
                     cancellationToken: cancellationToken
                 );
             }
@@ -257,7 +257,7 @@ public sealed class BotService : IHostedService, IDisposable
             {
                 await botClient.SendMessage(
                     chatId: chatId,
-                    text: $"Error al buscar la carpeta: {ex.Message}",
+                    text: $"Error finding folder: {ex.Message}",
                     cancellationToken: cancellationToken
                 );
                 session.State = ChatState.InitialMenu;
@@ -269,7 +269,7 @@ public sealed class BotService : IHostedService, IDisposable
             {
                 await botClient.SendMessage(
                     chatId: chatId,
-                    text: "No pude identificar una carpeta. Intenta describirla de otra forma o escribe *cancelar* para volver al menú.",
+                    text: "Could not identify a folder. Try describing it differently or type *cancel* to go back to the menu.",
                     cancellationToken: cancellationToken
                 );
                 return;
@@ -284,7 +284,7 @@ public sealed class BotService : IHostedService, IDisposable
 
                 await botClient.SendMessage(
                     chatId: chatId,
-                    text: $"Sesión creada en la carpeta:\n{path}\n\nEscribe algo y lo reenviaré a OpenCode.",
+                    text: $"Session created in folder:\n{path}\n\nSend a message and I'll forward it to OpenCode.",
                     cancellationToken: cancellationToken
                 );
             }
@@ -292,7 +292,7 @@ public sealed class BotService : IHostedService, IDisposable
             {
                 await botClient.SendMessage(
                     chatId: chatId,
-                    text: $"Error al crear sesión en OpenCode: {ex.Message}",
+                    text: $"Error creating session in OpenCode: {ex.Message}",
                     cancellationToken: cancellationToken
                 );
                 session.State = ChatState.InitialMenu;
@@ -308,7 +308,7 @@ public sealed class BotService : IHostedService, IDisposable
             {
                 await botClient.SendMessage(
                     chatId: chatId,
-                    text: "No hay sesión de OpenCode activa.",
+                    text: "No active OpenCode session.",
                     cancellationToken: cancellationToken
                 );
                 return;
@@ -317,7 +317,7 @@ public sealed class BotService : IHostedService, IDisposable
             try
             {
                 var reply = await _openCode.SendMessageAsync(session.OpenCodeSessionId, messageText, cancellationToken)
-                    ?? "Sin respuesta de OpenCode.";
+                    ?? "No response from OpenCode.";
 
                 await botClient.SendMessage(
                     chatId: chatId,
@@ -330,7 +330,7 @@ public sealed class BotService : IHostedService, IDisposable
             {
                 await botClient.SendMessage(
                     chatId: chatId,
-                    text: $"Error al comunicar con OpenCode: {ex.Message}",
+                    text: $"Error communicating with OpenCode: {ex.Message}",
                     cancellationToken: cancellationToken
                 );
             }
@@ -339,7 +339,7 @@ public sealed class BotService : IHostedService, IDisposable
 
     private static Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
     {
-        Console.WriteLine($"Error en el bot: {exception.Message}");
+        Console.WriteLine($"Bot error: {exception.Message}");
         return Task.CompletedTask;
     }
 

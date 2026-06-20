@@ -45,7 +45,7 @@ public sealed class VibeUtils
         path = path.Replace("\\\\", "\\");
 
         if (!Directory.Exists(path))
-            throw new DirectoryNotFoundException($"La carpeta '{path}' no existe.");
+            throw new DirectoryNotFoundException($"The folder '{path}' does not exist.");
 
         return path;
     }
