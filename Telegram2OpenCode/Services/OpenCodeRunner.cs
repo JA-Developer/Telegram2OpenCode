@@ -13,7 +13,34 @@ public sealed class OpenCodeRunner
 {
     private static readonly SemaphoreSlim _semaphore = new(1, 1);
 
-    public async Task<List<string>> RunAsync(string argument, CancellationToken cancellationToken = default)
+    public async Task<List<string>> PlanAsync(string argument, CancellationToken cancellationToken = default)
+    {
+        var permissions = new
+        {
+            glob = "allow",
+            read = "allow",
+            grep = "allow",
+            external_directory = "allow"
+        };
+        return await RunOpenCodeAsync("plan", argument, JsonSerializer.Serialize(permissions), cancellationToken);
+    }
+
+    public async Task<List<string>> BuildAsync(string argument, CancellationToken cancellationToken = default)
+    {
+        var permissions = new
+        {
+            glob = "allow",
+            read = "allow",
+            grep = "allow",
+            write = "allow",
+            edit = "allow",
+            bash = "allow",
+            external_directory = "allow"
+        };
+        return await RunOpenCodeAsync("build", argument, JsonSerializer.Serialize(permissions), cancellationToken);
+    }
+
+    private async Task<List<string>> RunOpenCodeAsync(string agent, string argument, string permissions, CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
 
@@ -21,16 +48,8 @@ public sealed class OpenCodeRunner
         {
             var stdOut = new StringBuilder();
 
-            var permissions = JsonSerializer.Serialize(new
-            {
-                glob = "allow",
-                read = "allow",
-                grep = "allow",
-                external_directory = "allow"
-            });
-
             await Cli.Wrap("opencode")
-                .WithArguments(new[] { "run", "--agent", "plan", "--pure", "--format", "json", argument ?? string.Empty })
+                .WithArguments(new[] { "run", "--agent", agent, "--pure", "--format", "json", argument ?? string.Empty })
                 .WithEnvironmentVariables(new Dictionary<string, string?>
                 {
                     ["OPENCODE_PERMISSION"] = permissions
