@@ -3,50 +3,70 @@
 @inject IAiAgentRepository AgentRepo
 @inject NavigationManager Navigation
 
-<PageTitle>Edit AiAgent</PageTitle>
+<PageTitle>Edit Ai Agent</PageTitle>
 
-<h1>Edit Ai Agent</h1>
+<div class="mb-4">
+    <a href="ai-agents" class="btn btn-sm btn-outline-secondary rounded-2 mb-2">
+        <span class="bi bi-arrow-left me-1"></span> Back to list
+    </a>
+    <h1 class="display-6 fw-semibold">Edit AI Agent</h1>
+    <p class="text-muted">Update the agent configuration.</p>
+</div>
 
 @if (entity is null)
 {
-    <p><em>Loading...</em></p>
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2 text-muted">Loading agent...</p>
+    </div>
 }
 else
 {
-    <EditForm Model="@dto" OnValidSubmit="HandleSubmit">
-        <DataAnnotationsValidator />
-        <ValidationSummary class="text-danger" />
+    <div class="card border-0 shadow-sm rounded-3">
+        <div class="card-body p-4">
+            <EditForm Model="@dto" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" />
 
-        <div class="mb-3">
-            <label for="name" class="form-label">Name</label>
-            <InputText id="name" class="form-control" @bind-Value="dto.Name" />
-            <ValidationMessage For="@(() => dto.Name)" class="text-danger" />
+                <div class="mb-3">
+                    <label for="name" class="form-label fw-semibold">Name</label>
+                    <InputText id="name" class="form-control rounded-2" @bind-Value="dto.Name" />
+                    <ValidationMessage For="@(() => dto.Name)" class="text-danger" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="model" class="form-label fw-semibold">Model</label>
+                    <InputText id="model" class="form-control rounded-2" @bind-Value="dto.Model" />
+                    <ValidationMessage For="@(() => dto.Model)" class="text-danger" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label fw-semibold">Description</label>
+                    <InputTextArea id="description" class="form-control rounded-2" @bind-Value="dto.Description" rows="2" />
+                </div>
+
+                <div class="mb-4">
+                    <label for="systemPrompt" class="form-label fw-semibold">System Prompt</label>
+                    <InputTextArea id="systemPrompt" class="form-control rounded-2 font-monospace" @bind-Value="dto.SystemPrompt" rows="6" />
+                    <div class="form-text">Defines the base behavior and personality of the agent.</div>
+                </div>
+
+                <div class="mb-4 form-check form-switch">
+                    <InputCheckbox id="isActive" class="form-check-input" @bind-Value="dto.IsActive" />
+                    <label for="isActive" class="form-check-label fw-semibold">Active</label>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary rounded-2 px-4">
+                        <span class="bi bi-check-lg me-1"></span> Save
+                    </button>
+                    <a href="ai-agents" class="btn btn-outline-secondary rounded-2 px-4">Cancel</a>
+                </div>
+            </EditForm>
         </div>
-
-        <div class="mb-3">
-            <label for="model" class="form-label">Model</label>
-            <InputText id="model" class="form-control" @bind-Value="dto.Model" />
-            <ValidationMessage For="@(() => dto.Model)" class="text-danger" />
-        </div>
-
-        <div class="mb-3">
-            <label for="description" class="form-label">Description</label>
-            <InputTextArea id="description" class="form-control" @bind-Value="dto.Description" />
-        </div>
-
-        <div class="mb-3">
-            <label for="systemPrompt" class="form-label">System Prompt</label>
-            <InputTextArea id="systemPrompt" class="form-control" @bind-Value="dto.SystemPrompt" />
-        </div>
-
-        <div class="mb-3 form-check">
-            <InputCheckbox id="isActive" class="form-check-input" @bind-Value="dto.IsActive" />
-            <label for="isActive" class="form-check-label">Active</label>
-        </div>
-
-        <button type="submit" class="btn btn-primary">Save</button>
-        <a href="ai-agents" class="btn btn-secondary">Cancel</a>
-    </EditForm>
+    </div>
 }
 
 @code {

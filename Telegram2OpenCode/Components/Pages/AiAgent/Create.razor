@@ -3,39 +3,54 @@
 @inject IAiAgentRepository AgentRepo
 @inject NavigationManager Navigation
 
-<PageTitle>Create AiAgent</PageTitle>
+<PageTitle>Create Ai Agent</PageTitle>
 
-<h1>Create Ai Agent</h1>
+<div class="mb-4">
+    <a href="ai-agents" class="btn btn-sm btn-outline-secondary rounded-2 mb-2">
+        <span class="bi bi-arrow-left me-1"></span> Back to list
+    </a>
+    <h1 class="display-6 fw-semibold">Create AI Agent</h1>
+    <p class="text-muted">Configure a new AI agent for your Telegram bots.</p>
+</div>
 
-<EditForm Model="@dto" OnValidSubmit="HandleSubmit">
-    <DataAnnotationsValidator />
-    <ValidationSummary class="text-danger" />
+<div class="card border-0 shadow-sm rounded-3">
+    <div class="card-body p-4">
+        <EditForm Model="@dto" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
 
-    <div class="mb-3">
-        <label for="name" class="form-label">Name</label>
-        <InputText id="name" class="form-control" @bind-Value="dto.Name" />
-        <ValidationMessage For="@(() => dto.Name)" class="text-danger" />
+            <div class="mb-3">
+                <label for="name" class="form-label fw-semibold">Name</label>
+                <InputText id="name" class="form-control rounded-2" placeholder="e.g. GPT-4 Assistant" @bind-Value="dto.Name" />
+                <ValidationMessage For="@(() => dto.Name)" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label for="model" class="form-label fw-semibold">Model</label>
+                <InputText id="model" class="form-control rounded-2" placeholder="e.g. gpt-4o" @bind-Value="dto.Model" />
+                <ValidationMessage For="@(() => dto.Model)" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label for="description" class="form-label fw-semibold">Description</label>
+                <InputTextArea id="description" class="form-control rounded-2" placeholder="Brief description of this agent" @bind-Value="dto.Description" rows="2" />
+            </div>
+
+            <div class="mb-4">
+                <label for="systemPrompt" class="form-label fw-semibold">System Prompt</label>
+                <InputTextArea id="systemPrompt" class="form-control rounded-2 font-monospace" placeholder="You are a helpful assistant..." @bind-Value="dto.SystemPrompt" rows="6" />
+                <div class="form-text">Defines the base behavior and personality of the agent.</div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary rounded-2 px-4">
+                    <span class="bi bi-check-lg me-1"></span> Create
+                </button>
+                <a href="ai-agents" class="btn btn-outline-secondary rounded-2 px-4">Cancel</a>
+            </div>
+        </EditForm>
     </div>
-
-    <div class="mb-3">
-        <label for="model" class="form-label">Model</label>
-        <InputText id="model" class="form-control" @bind-Value="dto.Model" />
-        <ValidationMessage For="@(() => dto.Model)" class="text-danger" />
-    </div>
-
-    <div class="mb-3">
-        <label for="description" class="form-label">Description</label>
-        <InputTextArea id="description" class="form-control" @bind-Value="dto.Description" />
-    </div>
-
-    <div class="mb-3">
-        <label for="systemPrompt" class="form-label">System Prompt</label>
-        <InputTextArea id="systemPrompt" class="form-control" @bind-Value="dto.SystemPrompt" />
-    </div>
-
-    <button type="submit" class="btn btn-primary">Create</button>
-    <a href="ai-agents" class="btn btn-secondary">Cancel</a>
-</EditForm>
+</div>
 
 @code {
     private readonly CreateAiAgentDto dto = new();
