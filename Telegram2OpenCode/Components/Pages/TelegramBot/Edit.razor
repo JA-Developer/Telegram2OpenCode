@@ -1,0 +1,87 @@
+@page "/telegram-bots/edit/{Id:int}"
+@rendermode InteractiveServer
+@inject ITelegramBotRepository BotRepo
+@inject NavigationManager Navigation
+
+<PageTitle>Edit TelegramBot</PageTitle>
+
+<h1>Edit Telegram Bot</h1>
+
+@if (entity is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <EditForm Model="@dto" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        <div class="mb-3">
+            <label for="name" class="form-label">Name</label>
+            <InputText id="name" class="form-control" @bind-Value="dto.Name" />
+            <ValidationMessage For="@(() => dto.Name)" class="text-danger" />
+        </div>
+
+        <div class="mb-3">
+            <label for="username" class="form-label">Username</label>
+            <InputText id="username" class="form-control" @bind-Value="dto.Username" />
+        </div>
+
+        <div class="mb-3">
+            <label for="token" class="form-label">Token</label>
+            <InputText id="token" class="form-control" @bind-Value="dto.Token" />
+            <ValidationMessage For="@(() => dto.Token)" class="text-danger" />
+        </div>
+
+        <div class="mb-3">
+            <label for="welcomeMessage" class="form-label">Welcome Message</label>
+            <InputTextArea id="welcomeMessage" class="form-control" @bind-Value="dto.WelcomeMessage" />
+        </div>
+
+        <div class="mb-3 form-check">
+            <InputCheckbox id="isActive" class="form-check-input" @bind-Value="dto.IsActive" />
+            <label for="isActive" class="form-check-label">Active</label>
+        </div>
+
+        <div class="mb-3 form-check">
+            <InputCheckbox id="isRunning" class="form-check-input" @bind-Value="dto.IsRunning" />
+            <label for="isRunning" class="form-check-label">Running</label>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="telegram-bots" class="btn btn-secondary">Cancel</a>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private TelegramBot? entity;
+    private UpdateTelegramBotDto dto = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        entity = await BotRepo.GetByIdAsync(Id);
+
+        if (entity is not null)
+        {
+            dto.Name = entity.Name;
+            dto.Username = entity.Username;
+            dto.Token = entity.Token;
+            dto.WelcomeMessage = entity.WelcomeMessage;
+            dto.IsActive = entity.IsActive;
+            dto.IsRunning = entity.IsRunning;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (entity is null) return;
+
+        entity.ApplyUpdate(dto);
+        await BotRepo.UpdateAsync(entity);
+        Navigation.NavigateTo("telegram-bots");
+    }
+}

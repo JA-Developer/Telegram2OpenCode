@@ -1,0 +1,56 @@
+@page "/telegram-bots"
+@rendermode InteractiveServer
+@inject ITelegramBotRepository BotRepo
+
+<PageTitle>TelegramBots</PageTitle>
+
+<h1>Telegram Bots</h1>
+
+<p>
+    <a href="telegram-bots/create" class="btn btn-primary">Create New</a>
+</p>
+
+@if (bots is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Active</th>
+                <th>Running</th>
+                <th>Created</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var bot in bots)
+            {
+                <tr>
+                    <td>@bot.Name</td>
+                    <td>@bot.Username</td>
+                    <td>@bot.IsActive</td>
+                    <td>@bot.IsRunning</td>
+                    <td>@bot.CreatedAt.ToShortDateString()</td>
+                    <td>
+                        <a href="telegram-bots/edit/@bot.Id" class="btn btn-sm btn-warning">Edit</a>
+                        <a href="telegram-bots/delete/@bot.Id" class="btn btn-sm btn-danger">Delete</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<TelegramBot>? bots;
+
+    protected override async Task OnInitializedAsync()
+    {
+        bots = await BotRepo.GetAllAsync();
+    }
+}

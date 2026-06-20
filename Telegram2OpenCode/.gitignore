@@ -1,0 +1,80 @@
+## .NET
+bin/
+obj/
+*.csproj.user
+*.csproj.DotSettings.user
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.userprefs
+
+## NuGet
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nupkg
+**/[Nn]uGet.exe
+*.nuget.props
+*.nuget.targets
+
+## Visual Studio
+.vs/
+*.sln.ide/
+
+## JetBrains Rider
+.idea/
+*.sln.iml
+
+## Database
+*.db
+*.mdf
+*.ldf
+
+## Secrets
+appsettings.*.local.json
+secrets.json
+
+## OS
+Thumbs.db
+*.DS_Store
+[Dd]esktop.ini
+
+## wwwroot/lib (restored by package manager)
+wwwroot/lib/
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## dotnet
+*.log
+*.trx
+*.vsix
+
+## Node
+node_modules/
+
+## Misc
+*.ilk
+*.meta
+*.obj
+*.pch
+*.pdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tmp
+*.log

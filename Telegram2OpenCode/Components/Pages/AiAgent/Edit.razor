@@ -1,0 +1,81 @@
+@page "/ai-agents/edit/{Id:int}"
+@rendermode InteractiveServer
+@inject IAiAgentRepository AgentRepo
+@inject NavigationManager Navigation
+
+<PageTitle>Edit AiAgent</PageTitle>
+
+<h1>Edit Ai Agent</h1>
+
+@if (entity is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <EditForm Model="@dto" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        <div class="mb-3">
+            <label for="name" class="form-label">Name</label>
+            <InputText id="name" class="form-control" @bind-Value="dto.Name" />
+            <ValidationMessage For="@(() => dto.Name)" class="text-danger" />
+        </div>
+
+        <div class="mb-3">
+            <label for="model" class="form-label">Model</label>
+            <InputText id="model" class="form-control" @bind-Value="dto.Model" />
+            <ValidationMessage For="@(() => dto.Model)" class="text-danger" />
+        </div>
+
+        <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <InputTextArea id="description" class="form-control" @bind-Value="dto.Description" />
+        </div>
+
+        <div class="mb-3">
+            <label for="systemPrompt" class="form-label">System Prompt</label>
+            <InputTextArea id="systemPrompt" class="form-control" @bind-Value="dto.SystemPrompt" />
+        </div>
+
+        <div class="mb-3 form-check">
+            <InputCheckbox id="isActive" class="form-check-input" @bind-Value="dto.IsActive" />
+            <label for="isActive" class="form-check-label">Active</label>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="ai-agents" class="btn btn-secondary">Cancel</a>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private AiAgent? entity;
+    private UpdateAiAgentDto dto = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        entity = await AgentRepo.GetByIdAsync(Id);
+
+        if (entity is not null)
+        {
+            dto.Name = entity.Name;
+            dto.Description = entity.Description;
+            dto.SystemPrompt = entity.SystemPrompt;
+            dto.Model = entity.Model;
+            dto.IsActive = entity.IsActive;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (entity is null) return;
+
+        entity.ApplyUpdate(dto);
+        await AgentRepo.UpdateAsync(entity);
+        Navigation.NavigateTo("ai-agents");
+    }
+}
