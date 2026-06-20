@@ -24,16 +24,18 @@ public sealed class OpenCodeRunner
             var permissions = JsonSerializer.Serialize(new
             {
                 glob = "allow",
+                read = "allow",
+                grep = "allow",
                 external_directory = "allow"
             });
 
             await Cli.Wrap("opencode")
-                .WithArguments(new[] { "run", "--format", "json", argument ?? string.Empty })
+                .WithArguments(new[] { "run", "--agent", "plan", "--format", "json", argument ?? string.Empty })
                 .WithEnvironmentVariables(new Dictionary<string, string?>
                 {
                     ["OPENCODE_PERMISSION"] = permissions
                 })
-                .WithValidation(CommandResultValidation.None)
+                .WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdOut))
                 .ExecuteAsync(cancellationToken);
 
             var output = stdOut.ToString();
