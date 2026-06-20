@@ -17,7 +17,8 @@ builder.Services.AddScoped<IAiAgentRepository, AiAgentRepository>();
 builder.Services.AddScoped<ITelegramBotRepository, TelegramBotRepository>();
 builder.Services.AddScoped<IChatSessionRepository, ChatSessionRepository>();
 
-builder.Services.AddHttpClient();
+builder.Services.AddHttpClient("OpenCode")
+    .ConfigureHttpClient(c => c.Timeout = System.Threading.Timeout.InfiniteTimeSpan);
 builder.Services.AddSingleton<OpenCodeManager>();
 builder.Services.AddSingleton<OpenCodeRunner>();
 builder.Services.AddSingleton<VibeUtils>();

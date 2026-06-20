@@ -22,7 +22,7 @@ public sealed class OpenCodeManager
 
     public async Task<string?> CreateSessionAsync(CreateSessionRequest request, CancellationToken cancellationToken = default)
     {
-        var httpClient = _httpClientFactory.CreateClient();
+        var httpClient = _httpClientFactory.CreateClient("OpenCode");
         var url = $"{_apiUrl}/session{request.ToQueryString()}";
         var response = await httpClient.PostAsJsonAsync(
             url,
@@ -37,7 +37,7 @@ public sealed class OpenCodeManager
 
     public async Task<string?> SendMessageAsync(string sessionId, string message, CancellationToken cancellationToken = default)
     {
-        var httpClient = _httpClientFactory.CreateClient();
+        var httpClient = _httpClientFactory.CreateClient("OpenCode");
         var payload = new
         {
             parts = new[]
@@ -63,7 +63,7 @@ public sealed class OpenCodeManager
 
     public async Task<List<SessionItem>> GetSessionsAsync(CancellationToken cancellationToken = default)
     {
-        var httpClient = _httpClientFactory.CreateClient();
+        var httpClient = _httpClientFactory.CreateClient("OpenCode");
         var response = await httpClient.GetAsync($"{_apiUrl}/session", cancellationToken);
 
         response.EnsureSuccessStatusCode();
