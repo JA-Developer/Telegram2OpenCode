@@ -19,7 +19,7 @@ public sealed class BotService : IHostedService, IDisposable
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly OpenCodeManager _openCode;
     private readonly VibeUtils _vibeUtils;
-    private readonly ConcurrentDictionary<int, TelegramBotClient> _bots = new();
+    private readonly ConcurrentDictionary<int, (TelegramBotClient Client, string Username)> _bots = new();
     private readonly CancellationTokenSource _cts = new();
     private Timer? _syncTimer;
 
@@ -37,9 +37,9 @@ public sealed class BotService : IHostedService, IDisposable
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        await SyncBotsAsync();
+        await SyncBotsAsync(cancellationToken);
 
-        _syncTimer = new Timer(async _ => await SyncBotsAsync(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+        _syncTimer = new Timer(async _ => await SyncBotsAsync(_cts.Token), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
@@ -49,7 +49,7 @@ public sealed class BotService : IHostedService, IDisposable
         return Task.CompletedTask;
     }
 
-    private async Task SyncBotsAsync()
+    private async Task SyncBotsAsync(CancellationToken cancellationToken = default)
     {
         using var scope = _scopeFactory.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<ITelegramBotRepository>();
@@ -66,13 +66,15 @@ public sealed class BotService : IHostedService, IDisposable
             try
             {
                 var client = new TelegramBotClient(bot.Token);
+                var me = await client.GetMe(cancellationToken);
+                var username = me.Username ?? string.Empty;
                 client.StartReceiving(
-                    updateHandler: HandleUpdateAsync,
+                    updateHandler: (b, u, ct) => HandleUpdateAsync(b, u, ct, username),
                     errorHandler: HandlePollingErrorAsync,
                     receiverOptions: ReceiverOptions,
                     cancellationToken: _cts.Token
                 );
-                _bots[bot.Id] = client;
+                _bots[bot.Id] = (client, username);
                 Console.WriteLine($"Bot '{bot.Name}' started.");
             }
             catch (Exception ex)
@@ -104,12 +106,19 @@ public sealed class BotService : IHostedService, IDisposable
         return session;
     }
 
-    private async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
+    private async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken, string botUsername)
     {
-        if (update.Message is not { Text: { } messageText } message)
+        if (update.Message is not { Text: { } text } message)
             return;
 
         var chatId = message.Chat.Id;
+        var chatType = message.Chat.Type;
+
+        if (chatType is ChatType.Group or ChatType.Supergroup)
+        {
+            if (!text.Contains($"@{botUsername}", StringComparison.OrdinalIgnoreCase))
+                return;
+        }
 
         await botClient.SendChatAction(chatId, ChatAction.Typing, cancellationToken: cancellationToken);
 
@@ -120,7 +129,9 @@ public sealed class BotService : IHostedService, IDisposable
 
         if (session.State == ChatState.InitialMenu)
         {
-            if (messageText.StartsWith("/start") || messageText.StartsWith("/help"))
+            var withoutMention = text.Replace($"@{botUsername}", "", StringComparison.OrdinalIgnoreCase).Trim();
+            var trimmedWithoutMention = withoutMention.Trim();
+            if (trimmedWithoutMention.StartsWith("/start", StringComparison.OrdinalIgnoreCase) || withoutMention.StartsWith("/help", StringComparison.OrdinalIgnoreCase))
             {
                 await botClient.SendMessage(
                     chatId: chatId,
@@ -130,7 +141,7 @@ public sealed class BotService : IHostedService, IDisposable
                 return;
             }
 
-            var cleaned = messageText.Trim().ToLowerInvariant();
+            var cleaned = text.Trim().ToLowerInvariant();
 
             switch (cleaned)
             {
@@ -222,7 +233,7 @@ public sealed class BotService : IHostedService, IDisposable
 
         if (session.State == ChatState.SelectingSession)
         {
-            if (int.TryParse(messageText.Trim(), out var index) && index >= 1 && index <= session.PendingSessionIds.Count)
+            if (int.TryParse(text.Trim(), out var index) && index >= 1 && index <= session.PendingSessionIds.Count)
             {
                 session.OpenCodeSessionId = session.PendingSessionIds[index - 1];
                 session.PendingSessionIds.Clear();
@@ -251,7 +262,7 @@ public sealed class BotService : IHostedService, IDisposable
             string? path;
             try
             {
-                path = await _vibeUtils.ConvertPromptToPath(messageText, cancellationToken);
+                path = await _vibeUtils.ConvertPromptToPath(text, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -316,7 +327,7 @@ public sealed class BotService : IHostedService, IDisposable
 
             try
             {
-                var reply = await _openCode.SendMessageAsync(session.OpenCodeSessionId, messageText, cancellationToken)
+                var reply = await _openCode.SendMessageAsync(session.OpenCodeSessionId, text, cancellationToken)
                     ?? "No response from OpenCode.";
 
                 await botClient.SendMessage(
