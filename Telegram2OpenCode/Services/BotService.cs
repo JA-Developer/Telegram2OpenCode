@@ -111,6 +111,8 @@ public sealed class BotService : IHostedService, IDisposable
 
         var chatId = message.Chat.Id;
 
+        await botClient.SendChatAction(chatId, ChatAction.Typing, cancellationToken: cancellationToken);
+
         using var scope = _scopeFactory.CreateScope();
         var sessionRepo = scope.ServiceProvider.GetRequiredService<IChatSessionRepository>();
 
