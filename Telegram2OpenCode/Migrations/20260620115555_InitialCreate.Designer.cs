@@ -11,8 +11,8 @@ using Telegram2OpenCode.Data;
 namespace Telegram2OpenCode.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260528044936_AddIsRunningToTelegramBot")]
-    partial class AddIsRunningToTelegramBot
+    [Migration("20260620115555_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -55,6 +55,24 @@ namespace Telegram2OpenCode.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("AiAgents", (string)null);
+                });
+
+            modelBuilder.Entity("Telegram2OpenCode.Models.ChatSessionEntity", b =>
+                {
+                    b.Property<long>("ChatId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StateJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ChatId");
+
+                    b.ToTable("ChatSessions", (string)null);
                 });
 
             modelBuilder.Entity("Telegram2OpenCode.Models.TelegramBot", b =>

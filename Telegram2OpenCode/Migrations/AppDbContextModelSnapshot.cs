@@ -54,6 +54,24 @@ namespace Telegram2OpenCode.Migrations
                     b.ToTable("AiAgents", (string)null);
                 });
 
+            modelBuilder.Entity("Telegram2OpenCode.Models.ChatSessionEntity", b =>
+                {
+                    b.Property<long>("ChatId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StateJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ChatId");
+
+                    b.ToTable("ChatSessions", (string)null);
+                });
+
             modelBuilder.Entity("Telegram2OpenCode.Models.TelegramBot", b =>
                 {
                     b.Property<int>("Id")

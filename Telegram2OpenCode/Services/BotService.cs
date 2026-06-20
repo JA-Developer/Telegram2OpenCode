@@ -20,7 +20,6 @@ public sealed class BotService : IHostedService, IDisposable
     private readonly OpenCodeManager _openCode;
     private readonly VibeUtils _vibeUtils;
     private readonly ConcurrentDictionary<int, TelegramBotClient> _bots = new();
-    private readonly ConcurrentDictionary<long, TelegramChatSession> _sessions = new();
     private readonly CancellationTokenSource _cts = new();
     private Timer? _syncTimer;
 
@@ -94,6 +93,17 @@ public sealed class BotService : IHostedService, IDisposable
         }
     }
 
+    private async Task<TelegramChatSession> GetOrCreateSessionAsync(IChatSessionRepository repo, long chatId)
+    {
+        var session = await repo.GetByIdAsync(chatId);
+        if (session is null)
+        {
+            session = new TelegramChatSession(chatId);
+            await repo.CreateAsync(session);
+        }
+        return session;
+    }
+
     private async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
     {
         if (update.Message is not { Text: { } messageText } message)
@@ -101,7 +111,10 @@ public sealed class BotService : IHostedService, IDisposable
 
         var chatId = message.Chat.Id;
 
-        var session = _sessions.GetOrAdd(chatId, new TelegramChatSession(chatId));
+        using var scope = _scopeFactory.CreateScope();
+        var sessionRepo = scope.ServiceProvider.GetRequiredService<IChatSessionRepository>();
+
+        var session = await GetOrCreateSessionAsync(sessionRepo, chatId);
 
         if (session.State == ChatState.InitialMenu)
         {
@@ -124,6 +137,7 @@ public sealed class BotService : IHostedService, IDisposable
                     {
                         var sessionId = await _openCode.CreateSessionAsync(new CreateSessionRequest { title = $"Chat {chatId}" }, cancellationToken);
                         session.OpenCodeSessionId = sessionId;
+                        await sessionRepo.UpdateAsync(session);
                     }
                     catch (Exception ex)
                     {
@@ -136,6 +150,7 @@ public sealed class BotService : IHostedService, IDisposable
                     }
 
                     session.State = ChatState.Chat;
+                    await sessionRepo.UpdateAsync(session);
 
                     await botClient.SendMessage(
                         chatId: chatId,
@@ -172,6 +187,7 @@ public sealed class BotService : IHostedService, IDisposable
 
                     session.State = ChatState.SelectingSession;
                     session.PendingSessionIds = sessions.Select(s => s.Id).ToList();
+                    await sessionRepo.UpdateAsync(session);
 
                     var sb = new StringBuilder();
                     sb.AppendLine("Selecciona una sesión:");
@@ -190,6 +206,7 @@ public sealed class BotService : IHostedService, IDisposable
 
                 case "3":
                     session.State = ChatState.AwaitingFolderDescription;
+                    await sessionRepo.UpdateAsync(session);
                     await botClient.SendMessage(
                         chatId: chatId,
                         text: "Describe la carpeta que quieres abrir (ej: 'la carpeta de descargas' o 'mi proyecto en documentos'):",
@@ -208,6 +225,7 @@ public sealed class BotService : IHostedService, IDisposable
                 session.OpenCodeSessionId = session.PendingSessionIds[index - 1];
                 session.PendingSessionIds.Clear();
                 session.State = ChatState.Chat;
+                await sessionRepo.UpdateAsync(session);
 
                 await botClient.SendMessage(
                     chatId: chatId,
@@ -241,6 +259,7 @@ public sealed class BotService : IHostedService, IDisposable
                     cancellationToken: cancellationToken
                 );
                 session.State = ChatState.InitialMenu;
+                await sessionRepo.UpdateAsync(session);
                 return;
             }
 
@@ -259,6 +278,7 @@ public sealed class BotService : IHostedService, IDisposable
                 var sessionId = await _openCode.CreateSessionAsync(new CreateSessionRequest { title = $"Folder: {path}", directory = path }, cancellationToken);
                 session.OpenCodeSessionId = sessionId;
                 session.State = ChatState.Chat;
+                await sessionRepo.UpdateAsync(session);
 
                 await botClient.SendMessage(
                     chatId: chatId,
@@ -274,7 +294,9 @@ public sealed class BotService : IHostedService, IDisposable
                     cancellationToken: cancellationToken
                 );
                 session.State = ChatState.InitialMenu;
+                await sessionRepo.UpdateAsync(session);
             }
+
             return;
         }
 

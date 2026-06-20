@@ -33,7 +33,6 @@ public sealed class OpenCodeRunner
                 {
                     ["OPENCODE_PERMISSION"] = permissions
                 })
-                .WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdOut))
                 .WithValidation(CommandResultValidation.None)
                 .ExecuteAsync(cancellationToken);
 

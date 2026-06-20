@@ -15,6 +15,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IAiAgentRepository, AiAgentRepository>();
 builder.Services.AddScoped<ITelegramBotRepository, TelegramBotRepository>();
+builder.Services.AddScoped<IChatSessionRepository, ChatSessionRepository>();
 
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<OpenCodeManager>();

@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
 
     public DbSet<AiAgent> AiAgents => Set<AiAgent>();
     public DbSet<TelegramBot> TelegramBots => Set<TelegramBot>();
+    public DbSet<ChatSessionEntity> ChatSessions => Set<ChatSessionEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -24,6 +25,12 @@ public class AppDbContext : DbContext
         {
             entity.ToTable("TelegramBots");
             entity.HasQueryFilter(e => e.DeletedAt == null);
+        });
+
+        modelBuilder.Entity<ChatSessionEntity>(entity =>
+        {
+            entity.ToTable("ChatSessions");
+            entity.HasKey(e => e.ChatId);
         });
     }
 }

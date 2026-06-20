@@ -31,6 +31,20 @@ namespace Telegram2OpenCode.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ChatSessions",
+                columns: table => new
+                {
+                    ChatId = table.Column<long>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    StateJson = table.Column<string>(type: "TEXT", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ChatSessions", x => x.ChatId);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "TelegramBots",
                 columns: table => new
                 {
@@ -41,6 +55,7 @@ namespace Telegram2OpenCode.Migrations
                     Token = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
                     WelcomeMessage = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    IsRunning = table.Column<bool>(type: "INTEGER", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
                 },
@@ -55,6 +70,9 @@ namespace Telegram2OpenCode.Migrations
         {
             migrationBuilder.DropTable(
                 name: "AiAgents");
+
+            migrationBuilder.DropTable(
+                name: "ChatSessions");
 
             migrationBuilder.DropTable(
                 name: "TelegramBots");
