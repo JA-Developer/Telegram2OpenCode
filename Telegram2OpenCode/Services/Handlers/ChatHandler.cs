@@ -77,7 +77,7 @@ public sealed class ChatHandler : IStateHandler
         lines.AppendLine("━━━ Modified Files ━━━");
         foreach (var edit in editEvents)
         {
-            var icon = edit.Deletions > 0 && edit.Additions == 0 ? "➖" : edit.Additions > 0 && edit.Deletions == 0 ? "➕" : "✏️";
+            var icon = edit.Tool == "write" ? "🆕" : edit.Deletions > 0 && edit.Additions == 0 ? "➖" : edit.Additions > 0 && edit.Deletions == 0 ? "➕" : "✏️";
             lines.AppendLine($"{icon} {edit.FilePath} (+{edit.Additions}/-{edit.Deletions})");
         }
         return lines.ToString();
