@@ -37,9 +37,9 @@ public sealed class OpenCodeManager
         return data?.Id;
     }
 
-    public async Task<string?> SendMessageAsync(string sessionId, string message, CancellationToken cancellationToken = default)
+    public async Task<string?> SendMessageAsync(string sessionId, string message, Func<string, Task>? onUpdateReceived = null, CancellationToken cancellationToken = default)
     {
-        var outputs = await _runner.BuildAsync(message, sessionId, cancellationToken);
+        var outputs = await _runner.BuildAsync(message, sessionId, onUpdateReceived, cancellationToken);
         return outputs.LastOrDefault();
     }
 

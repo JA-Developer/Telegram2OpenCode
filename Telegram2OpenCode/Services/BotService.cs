@@ -125,8 +125,6 @@ public sealed class BotService : IHostedService, IDisposable
                 .Trim();
         }
 
-        await botClient.SendChatAction(chatId, ChatAction.Typing, cancellationToken: cancellationToken);
-
         using var scope = _scopeFactory.CreateScope();
         var sessionRepo = scope.ServiceProvider.GetRequiredService<IChatSessionRepository>();
 
@@ -263,7 +261,13 @@ public sealed class BotService : IHostedService, IDisposable
             string? path;
             try
             {
-                path = await _vibeUtils.ConvertPromptToPath(text, cancellationToken);
+                path = await _vibeUtils.ConvertPromptToPath(
+                    text,
+                    async line =>
+                    {
+                        await botClient.SendChatAction(chatId, ChatAction.Typing, cancellationToken: cancellationToken);
+                    },
+                    cancellationToken);
             }
             catch (Exception ex)
             {
@@ -328,7 +332,14 @@ public sealed class BotService : IHostedService, IDisposable
 
             try
             {
-                var reply = await _openCode.SendMessageAsync(session.OpenCodeSessionId, text, cancellationToken)
+                var reply = await _openCode.SendMessageAsync(
+                        session.OpenCodeSessionId,
+                        text,
+                        async line =>
+                        {
+                            await botClient.SendChatAction(chatId, ChatAction.Typing, cancellationToken: cancellationToken);
+                        },
+                        cancellationToken)
                     ?? "No response from OpenCode.";
 
                 await botClient.SendMessage(

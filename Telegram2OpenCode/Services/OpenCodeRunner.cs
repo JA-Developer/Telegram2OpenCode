@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using CliWrap;
+using CliWrap.EventStream; // REQUERIDO para la lectura asíncrona segura
 using Microsoft.Extensions.Logging;
 
 namespace Telegram2OpenCode.Services;
@@ -41,51 +42,74 @@ public sealed class OpenCodeRunner
         _logger = logger;
     }
 
-    public async Task<List<string>> PlanAsync(string argument, CancellationToken cancellationToken = default)
+    public async Task<List<string>> PlanAsync(string argument, Func<string, Task>? onUpdateReceived = null, CancellationToken cancellationToken = default)
     {
         var envVars = new Dictionary<string, string?>
         {
             ["OPENCODE_PERMISSION"] = JsonSerializer.Serialize(AgentPermissions["plan"])
         };
 
+        var results = new List<string>();
+
+        // Evitamos enviar strings vacíos como argumentos mal formados
+        var planArgs = new List<string> { "run", "--agent", "plan", "--format", "json" };
+        if (!string.IsNullOrWhiteSpace(argument))
+            planArgs.Add(argument);
+
         await _semaphore.WaitAsync(cancellationToken);
 
         try
         {
-            var results = new List<string>();
-            var lineBuffer = new StringBuilder();
-            var planArgs = new[] { "run", "--agent", "plan", "--format", "json", argument ?? string.Empty };
-
             _logger.LogInformation("[opencode/plan] opencode {Args}", string.Join(" ", planArgs));
 
-            await Cli.Wrap("opencode")
+            var cmd = Cli.Wrap("opencode")
                 .WithArguments(planArgs)
                 .WithEnvironmentVariables(envVars)
                 .WithStandardInputPipe(PipeSource.Null)
-                .WithStandardOutputPipe(PipeTarget.ToDelegate(chunk =>
-                {
-                    lineBuffer.Append(chunk);
-                    _logger.LogInformation("[opencode/plan] {Chunk}", chunk);
-                    var content = lineBuffer.ToString();
-                    var lines = content.Split('\n');
-                    lineBuffer.Clear();
-                    lineBuffer.Append(lines[^1]);
-                    for (var i = 0; i < lines.Length - 1; i++)
-                        ProcessNdjsonLine(lines[i].TrimEnd('\r'), results);
-                }))
-                .ExecuteAsync(cancellationToken);
+                .WithValidation(CommandResultValidation.None); // Evita que CliWrap lance excepciones si el exit code no es 0
 
-            if (lineBuffer.Length > 0)
+            // EventStream nos da líneas completas y permite usar 'await' internamente sin bloqueos
+            await foreach (var cmdEvent in cmd.ListenAsync(cancellationToken))
             {
-                var last = lineBuffer.ToString().TrimEnd('\r');
-                if (!string.IsNullOrWhiteSpace(last))
+                if (cmdEvent is StandardOutputCommandEvent stdOut)
                 {
-                    _logger.LogInformation("[opencode/plan] {Chunk}", last);
-                    ProcessNdjsonLine(last, results);
+                    var line = stdOut.Text;
+                    _logger.LogInformation("[opencode/plan] {Line}", line);
+
+                    var result = ProcessNdjsonLine(line);
+                    if (result != null)
+                        results.Add(result);
+
+                    // AHORA es seguro ejecutar métodos asíncronos y esperar su resultado
+                    if (onUpdateReceived != null)
+                    {
+                        try
+                        {
+                            await onUpdateReceived(line);
+                        }
+                        catch (Exception cbEx)
+                        {
+                            _logger.LogError(cbEx, "[opencode/plan] Error en el callback onMessageReceived.");
+                        }
+                    }
+                }
+                else if (cmdEvent is StandardErrorCommandEvent stdErr)
+                {
+                    _logger.LogWarning("[opencode/plan] Error output: {Line}", stdErr.Text);
                 }
             }
 
             return results;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("[opencode/plan] Operación cancelada.");
+            throw; // Re-lanzar es lo correcto para la cancelación
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[opencode/plan] Fallo crítico al ejecutar opencode.");
+            return results; // Retornamos lo que logramos recuperar para no fallar jamás
         }
         finally
         {
@@ -95,73 +119,109 @@ public sealed class OpenCodeRunner
 
     public async Task<List<SessionItem>> ListSessionsAsync(CancellationToken cancellationToken = default)
     {
-        var stdOut = new StringBuilder();
+        try
+        {
+            var stdOut = new StringBuilder();
 
-        await Cli.Wrap("opencode")
-            .WithArguments(new[] { "session", "list", "--format", "json" })
-            .WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdOut))
-            .ExecuteAsync(cancellationToken);
+            await Cli.Wrap("opencode")
+                .WithArguments(new[] { "session", "list", "--format", "json" })
+                .WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdOut))
+                .WithValidation(CommandResultValidation.None) // Seguridad anti-crashes
+                .ExecuteAsync(cancellationToken);
 
-        var output = stdOut.ToString();
-        if (string.IsNullOrWhiteSpace(output))
+            var output = stdOut.ToString();
+            if (string.IsNullOrWhiteSpace(output))
+                return new List<SessionItem>();
+
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            return JsonSerializer.Deserialize<List<SessionItem>>(output, options) ?? new List<SessionItem>();
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "[opencode/session] Error parseando la salida JSON. Posible texto de error del CLI.");
             return new List<SessionItem>();
-
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        return JsonSerializer.Deserialize<List<SessionItem>>(output, options) ?? new List<SessionItem>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[opencode/session] Fallo al listar sesiones.");
+            return new List<SessionItem>();
+        }
     }
 
-    public async Task<List<string>> BuildAsync(string argument, string? sessionId = null, CancellationToken cancellationToken = default)
+    public async Task<List<string>> BuildAsync(string argument, string? sessionId = null, Func<string, Task>? onUpdateReceived = null, CancellationToken cancellationToken = default)
     {
         var envVars = new Dictionary<string, string?>
         {
             ["OPENCODE_PERMISSION"] = JsonSerializer.Serialize(AgentPermissions["build"])
         };
 
+        var results = new List<string>();
+        var buildArgs = new List<string> { "run", "--agent", "build" };
+
+        if (!string.IsNullOrEmpty(sessionId))
+        {
+            buildArgs.Add("--session");
+            buildArgs.Add(sessionId);
+        }
+
+        buildArgs.Add("--format");
+        buildArgs.Add("json");
+
+        if (!string.IsNullOrWhiteSpace(argument))
+            buildArgs.Add(argument);
+
         await _semaphore.WaitAsync(cancellationToken);
 
         try
         {
-            var results = new List<string>();
-            var lineBuffer = new StringBuilder();
-            var buildArgs = new List<string> { "run", "--agent", "build" };
-            if (!string.IsNullOrEmpty(sessionId))
-            {
-                buildArgs.Add("--session");
-                buildArgs.Add(sessionId);
-            }
-            buildArgs.Add("--format");
-            buildArgs.Add("json");
-            buildArgs.Add(argument ?? string.Empty);
-
             _logger.LogInformation("[opencode/build] opencode {Args}", string.Join(" ", buildArgs));
 
-            await Cli.Wrap("opencode")
+            var cmd = Cli.Wrap("opencode")
                 .WithArguments(buildArgs)
                 .WithEnvironmentVariables(envVars)
                 .WithStandardInputPipe(PipeSource.Null)
-                .WithStandardOutputPipe(PipeTarget.ToDelegate(chunk =>
-                {
-                    lineBuffer.Append(chunk);
-                    _logger.LogInformation("[opencode/build] {Chunk}", chunk);
-                    var content = lineBuffer.ToString();
-                    var lines = content.Split('\n');
-                    lineBuffer.Clear();
-                    lineBuffer.Append(lines[^1]);
-                    for (var i = 0; i < lines.Length - 1; i++)
-                        ProcessNdjsonLine(lines[i].TrimEnd('\r'), results);
-                }))
-                .ExecuteAsync(cancellationToken);
+                .WithValidation(CommandResultValidation.None);
 
-            if (lineBuffer.Length > 0)
+            await foreach (var cmdEvent in cmd.ListenAsync(cancellationToken))
             {
-                var last = lineBuffer.ToString().TrimEnd('\r');
-                if (!string.IsNullOrWhiteSpace(last))
+                if (cmdEvent is StandardOutputCommandEvent stdOut)
                 {
-                    _logger.LogInformation("[opencode/build] {Chunk}", last);
-                    ProcessNdjsonLine(last, results);
+                    var line = stdOut.Text;
+                    _logger.LogInformation("[opencode/build] {Line}", line);
+
+                    var result = ProcessNdjsonLine(line);
+                    if (result != null)
+                        results.Add(result);
+
+                    // AHORA es seguro ejecutar métodos asíncronos y esperar su resultado
+                    if (onUpdateReceived != null)
+                    {
+                        try
+                        {
+                            await onUpdateReceived(line);
+                        }
+                        catch (Exception cbEx)
+                        {
+                            _logger.LogError(cbEx, "[opencode/build] Error en el callback onMessageReceived.");
+                        }
+                    }
+                }
+                else if (cmdEvent is StandardErrorCommandEvent stdErr)
+                {
+                    _logger.LogWarning("[opencode/build] Error output: {Line}", stdErr.Text);
                 }
             }
 
+            return results;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("[opencode/build] Operación cancelada.");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[opencode/build] Fallo crítico al ejecutar opencode build.");
             return results;
         }
         finally
@@ -170,10 +230,10 @@ public sealed class OpenCodeRunner
         }
     }
 
-    private static void ProcessNdjsonLine(string line, List<string> results)
+    private static string? ProcessNdjsonLine(string line)
     {
         if (string.IsNullOrWhiteSpace(line))
-            return;
+            return null;
 
         try
         {
@@ -186,11 +246,15 @@ public sealed class OpenCodeRunner
             {
                 var text = textProp.GetString();
                 if (!string.IsNullOrEmpty(text))
-                    results.Add(text);
+                    return text;
             }
         }
         catch (JsonException)
         {
+            // Omitimos silenciosamente las líneas que no son JSON válido 
+            // (a veces los CLIs tiran logs de debug en texto plano)
         }
+
+        return null;
     }
 }

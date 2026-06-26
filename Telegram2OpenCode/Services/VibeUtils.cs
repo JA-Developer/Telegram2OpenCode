@@ -16,11 +16,11 @@ public sealed class VibeUtils
         _runner = runner;
     }
 
-    public async Task<string?> ConvertPromptToPath(string userMessage, CancellationToken cancellationToken = default)
+    public async Task<string?> ConvertPromptToPath(string userMessage, Func<string, Task>? onUpdateReceived = null, CancellationToken cancellationToken = default)
     {
         var prompt = $"@explore Analyze the following user message and determine if it refers to a system folder. If it does, search for it using the available tools (e.g., glob) and respond only with a JSON in this format: {{\"path\": \"absolute_path_to_folder\"}}. If it does not refer to any folder, respond only with: {{}}. User message: {userMessage}";
 
-        var outputs = await _runner.PlanAsync(prompt, cancellationToken);
+        var outputs = await _runner.PlanAsync(prompt, onUpdateReceived, cancellationToken);
 
         var jsonText = outputs.LastOrDefault();
         if (jsonText is null)
