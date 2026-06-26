@@ -3,6 +3,7 @@ using Telegram2OpenCode.Components;
 using Telegram2OpenCode.Data;
 using Telegram2OpenCode.Repositories;
 using Telegram2OpenCode.Services;
+using Telegram2OpenCode.Services.Handlers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,12 @@ builder.Services.AddHttpClient("OpenCode")
 builder.Services.AddSingleton<OpenCodeManager>();
 builder.Services.AddSingleton<OpenCodeRunner>();
 builder.Services.AddSingleton<VibeUtils>();
+builder.Services.AddSingleton<ChatSessionService>();
+builder.Services.AddSingleton<IStateHandler, InitialMenuHandler>();
+builder.Services.AddSingleton<IStateHandler, SelectingSessionHandler>();
+builder.Services.AddSingleton<IStateHandler, AwaitingFolderHandler>();
+builder.Services.AddSingleton<IStateHandler, ChatHandler>();
+builder.Services.AddSingleton<StateHandlerResolver>();
 builder.Services.AddHostedService<BotService>();
 
 var app = builder.Build();
