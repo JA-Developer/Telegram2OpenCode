@@ -6,96 +6,191 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using CliWrap;
+using Microsoft.Extensions.Logging;
 
 namespace Telegram2OpenCode.Services;
 
 public sealed class OpenCodeRunner
 {
     private static readonly SemaphoreSlim _semaphore = new(1, 1);
+    private readonly ILogger<OpenCodeRunner> _logger;
+
+    private static readonly Dictionary<string, Dictionary<string, string>> AgentPermissions = new()
+    {
+        ["plan"] = new()
+        {
+            ["glob"] = "allow",
+            ["read"] = "allow",
+            ["grep"] = "allow",
+            ["external_directory"] = "allow"
+        },
+        ["build"] = new()
+        {
+            ["glob"] = "allow",
+            ["read"] = "allow",
+            ["grep"] = "allow",
+            ["write"] = "allow",
+            ["edit"] = "allow",
+            ["bash"] = "allow",
+            ["external_directory"] = "allow"
+        }
+    };
+
+    public OpenCodeRunner(ILogger<OpenCodeRunner> logger)
+    {
+        _logger = logger;
+    }
 
     public async Task<List<string>> PlanAsync(string argument, CancellationToken cancellationToken = default)
     {
-        var permissions = new
+        var envVars = new Dictionary<string, string?>
         {
-            glob = "allow",
-            read = "allow",
-            grep = "allow",
-            external_directory = "allow"
+            ["OPENCODE_PERMISSION"] = JsonSerializer.Serialize(AgentPermissions["plan"])
         };
-        return await RunOpenCodeAsync("plan", argument, JsonSerializer.Serialize(permissions), cancellationToken);
-    }
 
-    public async Task<List<string>> BuildAsync(string argument, CancellationToken cancellationToken = default)
-    {
-        var permissions = new
-        {
-            glob = "allow",
-            read = "allow",
-            grep = "allow",
-            write = "allow",
-            edit = "allow",
-            bash = "allow",
-            external_directory = "allow"
-        };
-        return await RunOpenCodeAsync("build", argument, JsonSerializer.Serialize(permissions), cancellationToken);
-    }
-
-    private async Task<List<string>> RunOpenCodeAsync(string agent, string argument, string permissions, CancellationToken cancellationToken)
-    {
         await _semaphore.WaitAsync(cancellationToken);
 
         try
         {
-            var stdOut = new StringBuilder();
+            var results = new List<string>();
+            var lineBuffer = new StringBuilder();
+            var planArgs = new[] { "run", "--agent", "plan", "--format", "json", argument ?? string.Empty };
+
+            _logger.LogInformation("[opencode/plan] opencode {Args}", string.Join(" ", planArgs));
 
             await Cli.Wrap("opencode")
-                .WithArguments(new[] { "run", "--agent", agent, "--pure", "--format", "json", argument ?? string.Empty })
-                .WithEnvironmentVariables(new Dictionary<string, string?>
+                .WithArguments(planArgs)
+                .WithEnvironmentVariables(envVars)
+                .WithStandardInputPipe(PipeSource.Null)
+                .WithStandardOutputPipe(PipeTarget.ToDelegate(chunk =>
                 {
-                    ["OPENCODE_PERMISSION"] = permissions
-                })
-                .WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdOut))
+                    lineBuffer.Append(chunk);
+                    _logger.LogInformation("[opencode/plan] {Chunk}", chunk);
+                    var content = lineBuffer.ToString();
+                    var lines = content.Split('\n');
+                    lineBuffer.Clear();
+                    lineBuffer.Append(lines[^1]);
+                    for (var i = 0; i < lines.Length - 1; i++)
+                        ProcessNdjsonLine(lines[i].TrimEnd('\r'), results);
+                }))
                 .ExecuteAsync(cancellationToken);
 
-            var output = stdOut.ToString();
-            if (string.IsNullOrWhiteSpace(output))
-                return new List<string>();
-
-            var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            var entries = new List<(long timestamp, string text)>();
-
-            foreach (var line in lines)
+            if (lineBuffer.Length > 0)
             {
-                try
+                var last = lineBuffer.ToString().TrimEnd('\r');
+                if (!string.IsNullOrWhiteSpace(last))
                 {
-                    using var doc = JsonDocument.Parse(line);
-                    var json = doc.RootElement;
-
-                    if (json.TryGetProperty("type", out var type) && type.GetString() == "text")
-                    {
-                        if (json.TryGetProperty("part", out var part) && part.TryGetProperty("text", out var textProp))
-                        {
-                            var extractedText = textProp.GetString();
-                            if (!string.IsNullOrEmpty(extractedText))
-                            {
-                                var timestamp = json.TryGetProperty("timestamp", out var ts) ? ts.GetInt64() : 0;
-                                entries.Add((timestamp, extractedText));
-                            }
-                        }
-                    }
-                }
-                catch (JsonException)
-                {
-                    continue;
+                    _logger.LogInformation("[opencode/plan] {Chunk}", last);
+                    ProcessNdjsonLine(last, results);
                 }
             }
 
-            entries.Sort((a, b) => a.timestamp.CompareTo(b.timestamp));
-            return entries.ConvertAll(e => e.text);
+            return results;
         }
         finally
         {
             _semaphore.Release();
+        }
+    }
+
+    public async Task<List<SessionItem>> ListSessionsAsync(CancellationToken cancellationToken = default)
+    {
+        var stdOut = new StringBuilder();
+
+        await Cli.Wrap("opencode")
+            .WithArguments(new[] { "session", "list", "--format", "json" })
+            .WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdOut))
+            .ExecuteAsync(cancellationToken);
+
+        var output = stdOut.ToString();
+        if (string.IsNullOrWhiteSpace(output))
+            return new List<SessionItem>();
+
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        return JsonSerializer.Deserialize<List<SessionItem>>(output, options) ?? new List<SessionItem>();
+    }
+
+    public async Task<List<string>> BuildAsync(string argument, string? sessionId = null, CancellationToken cancellationToken = default)
+    {
+        var envVars = new Dictionary<string, string?>
+        {
+            ["OPENCODE_PERMISSION"] = JsonSerializer.Serialize(AgentPermissions["build"])
+        };
+
+        await _semaphore.WaitAsync(cancellationToken);
+
+        try
+        {
+            var results = new List<string>();
+            var lineBuffer = new StringBuilder();
+            var buildArgs = new List<string> { "run", "--agent", "build" };
+            if (!string.IsNullOrEmpty(sessionId))
+            {
+                buildArgs.Add("--session");
+                buildArgs.Add(sessionId);
+            }
+            buildArgs.Add("--format");
+            buildArgs.Add("json");
+            buildArgs.Add(argument ?? string.Empty);
+
+            _logger.LogInformation("[opencode/build] opencode {Args}", string.Join(" ", buildArgs));
+
+            await Cli.Wrap("opencode")
+                .WithArguments(buildArgs)
+                .WithEnvironmentVariables(envVars)
+                .WithStandardInputPipe(PipeSource.Null)
+                .WithStandardOutputPipe(PipeTarget.ToDelegate(chunk =>
+                {
+                    lineBuffer.Append(chunk);
+                    _logger.LogInformation("[opencode/build] {Chunk}", chunk);
+                    var content = lineBuffer.ToString();
+                    var lines = content.Split('\n');
+                    lineBuffer.Clear();
+                    lineBuffer.Append(lines[^1]);
+                    for (var i = 0; i < lines.Length - 1; i++)
+                        ProcessNdjsonLine(lines[i].TrimEnd('\r'), results);
+                }))
+                .ExecuteAsync(cancellationToken);
+
+            if (lineBuffer.Length > 0)
+            {
+                var last = lineBuffer.ToString().TrimEnd('\r');
+                if (!string.IsNullOrWhiteSpace(last))
+                {
+                    _logger.LogInformation("[opencode/build] {Chunk}", last);
+                    ProcessNdjsonLine(last, results);
+                }
+            }
+
+            return results;
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    private static void ProcessNdjsonLine(string line, List<string> results)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+            return;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(line);
+            var json = doc.RootElement;
+
+            if (json.TryGetProperty("type", out var type) && type.GetString() == "text" &&
+                json.TryGetProperty("part", out var part) &&
+                part.TryGetProperty("text", out var textProp))
+            {
+                var text = textProp.GetString();
+                if (!string.IsNullOrEmpty(text))
+                    results.Add(text);
+            }
+        }
+        catch (JsonException)
+        {
         }
     }
 }

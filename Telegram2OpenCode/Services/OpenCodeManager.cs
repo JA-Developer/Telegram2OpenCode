@@ -3,19 +3,21 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
-
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 
 namespace Telegram2OpenCode.Services;
 
 public sealed class OpenCodeManager
 {
+    private readonly OpenCodeRunner _runner;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly string _apiUrl;
 
-    public OpenCodeManager(IHttpClientFactory httpClientFactory, IConfiguration configuration)
+    public OpenCodeManager(OpenCodeRunner runner, IHttpClientFactory httpClientFactory, IConfiguration configuration)
     {
+        _runner = runner;
         _httpClientFactory = httpClientFactory;
         _apiUrl = configuration["OpenCode:ApiUrl"] ?? "http://localhost:5000";
     }
@@ -37,63 +39,18 @@ public sealed class OpenCodeManager
 
     public async Task<string?> SendMessageAsync(string sessionId, string message, CancellationToken cancellationToken = default)
     {
-        var httpClient = _httpClientFactory.CreateClient("OpenCode");
-        var payload = new
-        {
-            parts = new[]
-            {
-                new { type = "text", text = message }
-            }
-        };
-
-        var response = await httpClient.PostAsJsonAsync(
-            $"{_apiUrl}/session/{sessionId}/message",
-            payload,
-            cancellationToken
-        );
-
-        response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadFromJsonAsync<OpenCodeMessageResponse>(cancellationToken: cancellationToken);
-
-        return result?.Parts
-            ?.Where(p => p.Type == "text")
-            ?.Select(p => p.Text)
-            ?.FirstOrDefault();
+        var outputs = await _runner.BuildAsync(message, sessionId, cancellationToken);
+        return outputs.LastOrDefault();
     }
 
     public async Task<List<SessionItem>> GetSessionsAsync(CancellationToken cancellationToken = default)
     {
-        var httpClient = _httpClientFactory.CreateClient("OpenCode");
-        var response = await httpClient.GetAsync($"{_apiUrl}/session", cancellationToken);
-
-        response.EnsureSuccessStatusCode();
-        var sessions = await response.Content.ReadFromJsonAsync<List<SessionItem>>(cancellationToken: cancellationToken);
-        return sessions ?? new List<SessionItem>();
+        return await _runner.ListSessionsAsync(cancellationToken);
     }
-
+    
     private sealed class CreateSessionResponse
     {
         public string? Id { get; set; }
-    }
-
-    private sealed class OpenCodeMessageResponse
-    {
-        public OpenCodeMessageInfo? Info { get; set; }
-        public List<OpenCodeMessagePart>? Parts { get; set; }
-    }
-
-    private sealed class OpenCodeMessageInfo
-    {
-        public string? Id { get; set; }
-        public string? SessionID { get; set; }
-        public string? Role { get; set; }
-        public string? Status { get; set; }
-    }
-
-    private sealed class OpenCodeMessagePart
-    {
-        public string Type { get; set; } = string.Empty;
-        public string? Text { get; set; }
     }
 }
 

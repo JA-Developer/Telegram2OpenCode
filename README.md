@@ -7,13 +7,7 @@ A Blazor web application that bridges Telegram bots with the [OpenCode](https://
 - **Multi-bot support** — Run multiple Telegram bots simultaneously, each with its own token
 - **Automatic sync** — Bots marked as `Running` in the database are automatically started; removing the flag stops them
 - **OpenCode integration** — Each chat session creates an OpenCode conversation and forwards messages
-- **CRUD management** — Web UI to create, edit, and delete AI agents and Telegram bots
-- **Chat session state machine** — Supports initial menu, chat mode, session selection, and folder opening
-- **AI-powered folder lookup** — Describe a folder in natural language and the app finds the path via OpenCode
-- **Typing indicator** — Sends `ChatAction.Typing` while processing messages
-- **Soft delete** — All entities support soft deletion with `DeletedAt`
 - **SQLite database** — Lightweight, zero-configuration storage
-- **Modern UI** — Clean Bootstrap 5 interface with inline SVG icons and hover effects
 
 ## Architecture
 
