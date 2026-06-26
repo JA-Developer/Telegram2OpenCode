@@ -1,3 +1,4 @@
+using System.Text;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -33,16 +34,26 @@ public sealed class ChatHandler : IStateHandler
 
         try
         {
+            var editEvents = new List<EditEvent>();
+
             var reply = await _openCode.SendMessageAsync(
                     session.OpenCodeSessionId,
                     cleanedText,
-                    async _ => await botClient.SendChatAction(chatId, ChatAction.Typing, cancellationToken: ct),
+                    async line =>
+                    {
+                        await botClient.SendChatAction(chatId, ChatAction.Typing, cancellationToken: ct);
+                        if (OpenCodeEventParser.TryParseEditEvent(line, out var edit))
+                            editEvents.Add(edit!);
+                    },
                     ct)
                 ?? "No response from OpenCode.";
 
+            var diffText = BuildDiffSummary(editEvents);
+            var finalText = diffText is null ? reply : $"{reply}\n\n{diffText}";
+
             await botClient.SendMessage(
                 chatId: chatId,
-                text: reply,
+                text: finalText,
                 replyParameters: message.Id,
                 cancellationToken: ct
             );
@@ -55,5 +66,20 @@ public sealed class ChatHandler : IStateHandler
                 cancellationToken: ct
             );
         }
+    }
+
+    private static string? BuildDiffSummary(List<EditEvent> editEvents)
+    {
+        if (editEvents.Count == 0)
+            return null;
+
+        var lines = new StringBuilder();
+        lines.AppendLine("━━━ Modified Files ━━━");
+        foreach (var edit in editEvents)
+        {
+            var icon = edit.Deletions > 0 && edit.Additions == 0 ? "➖" : edit.Additions > 0 && edit.Deletions == 0 ? "➕" : "✏️";
+            lines.AppendLine($"{icon} {edit.FilePath} (+{edit.Additions}/-{edit.Deletions})");
+        }
+        return lines.ToString();
     }
 }

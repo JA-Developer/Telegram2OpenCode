@@ -47,7 +47,7 @@ public sealed class OpenCodeManager
     {
         return await _runner.ListSessionsAsync(cancellationToken);
     }
-    
+
     private sealed class CreateSessionResponse
     {
         public string? Id { get; set; }
