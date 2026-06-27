@@ -5,7 +5,8 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using Telegram2OpenCode.Services.OpenCodeServerLoader;
 
 namespace Telegram2OpenCode.Services;
 
@@ -15,11 +16,15 @@ public sealed class OpenCodeManager
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly string _apiUrl;
 
-    public OpenCodeManager(OpenCodeRunner runner, IHttpClientFactory httpClientFactory, IConfiguration configuration)
+    public OpenCodeManager(OpenCodeRunner runner, IHttpClientFactory httpClientFactory, IOptions<OpenCodeServerOptions> options)
     {
         _runner = runner;
         _httpClientFactory = httpClientFactory;
-        _apiUrl = configuration["OpenCode:ApiUrl"] ?? "http://localhost:5000";
+
+        var opts = options.Value;
+        var address = string.IsNullOrWhiteSpace(opts.ServerAddress) ? "http://127.0.0.1" : opts.ServerAddress.TrimEnd('/');
+        var port = (opts.ServerPort ?? 0) > 0 ? opts.ServerPort ?? 4096 : 4096;
+        _apiUrl = $"{address}:{port}";
     }
 
     public async Task<string?> CreateSessionAsync(CreateSessionRequest request, CancellationToken cancellationToken = default)
