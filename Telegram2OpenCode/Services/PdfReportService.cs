@@ -10,7 +10,6 @@ public sealed class PdfReportService
 
     static PdfReportService()
     {
-        GlobalFontSettings.FontResolver = new RobotoMonoFontResolver();
         _fontName = "OpenCodeFont";
     }
 

@@ -170,7 +170,15 @@ public sealed class OpenCodeRunner
         if (!string.IsNullOrWhiteSpace(argument))
             buildArgs.Add(argument);
 
-        await _semaphore.WaitAsync(cancellationToken);
+        // 1. Preparamos el Watchdog: 300 segundos de margen entre líneas
+        var timeout = TimeSpan.FromSeconds(300);
+        using var timeoutCts = new CancellationTokenSource();
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        // Iniciamos la cuenta regresiva inicial
+        timeoutCts.CancelAfter(timeout);
+
+        await _semaphore.WaitAsync(linkedCts.Token);
 
         try
         {
@@ -182,8 +190,11 @@ public sealed class OpenCodeRunner
                 .WithStandardInputPipe(PipeSource.Null)
                 .WithValidation(CommandResultValidation.None);
 
-            await foreach (var cmdEvent in cmd.ListenAsync(cancellationToken))
+            await foreach (var cmdEvent in cmd.ListenAsync(linkedCts.Token))
             {
+                // 2. REINICIO DEL WATCHDOG: Se recibió output, reseteamos el temporizador
+                timeoutCts.CancelAfter(timeout);
+
                 if (cmdEvent is StandardOutputCommandEvent stdOut)
                 {
                     var line = stdOut.Text;
@@ -193,7 +204,6 @@ public sealed class OpenCodeRunner
                     if (result != null)
                         results.Add(result);
 
-                    // AHORA es seguro ejecutar métodos asíncronos y esperar su resultado
                     if (onUpdateReceived != null)
                     {
                         try
@@ -216,7 +226,16 @@ public sealed class OpenCodeRunner
         }
         catch (OperationCanceledException)
         {
-            _logger.LogWarning("[opencode/build] Operación cancelada.");
+            // Si el token global fue cancelado, el usuario lo pidió. 
+            // Si no, fue el timeoutCts quien se disparó por inactividad.
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogError("[opencode/build] Timeout: No se recibió salida en {Timeout}s", timeout);
+            }
+            else
+            {
+                _logger.LogWarning("[opencode/build] Operación cancelada.");
+            }
             throw;
         }
         catch (Exception ex)

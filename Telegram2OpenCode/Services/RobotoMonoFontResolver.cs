@@ -1,37 +1,39 @@
+using System.Reflection;
 using PdfSharp.Fonts;
-using Telegram2OpenCode.Properties;
 
 public sealed class RobotoMonoFontResolver : IFontResolver
 {
-    public string DefaultFontName => "OpenCodeFont";
+    private static readonly Assembly Assembly = Assembly.GetExecutingAssembly();
+    private static readonly Dictionary<string, byte[]> Cache = new();
 
-    // PASO 1: PdfSharp pregunta qué fuente usar basado en el estilo solicitado
     public FontResolverInfo ResolveTypeface(string familyName, bool isBold, bool isItalic)
     {
-        // Ignoramos el familyName porque forzamos nuestra propia fuente.
-        // Evaluamos si el código está pidiendo texto en negrita.
-        if (isBold)
-        {
-            return new FontResolverInfo("OpenCodeFont-Bold");
-        }
-
-        // Si no es negrita, devolvemos el identificador de la normal
-        return new FontResolverInfo("OpenCodeFont-Regular");
+        return new FontResolverInfo(isBold ? "OpenCodeFont-Bold" : "OpenCodeFont-Regular");
     }
 
-    // PASO 2: PdfSharp pide los bytes exactos usando el identificador del Paso 1
     public byte[]? GetFont(string faceName)
     {
-        if (faceName == "OpenCodeFont-Bold")
-        {
-            return Resource.RobotoMono_Bold;
-        }
+        if (Cache.TryGetValue(faceName, out var cached))
+            return cached;
 
-        if (faceName == "OpenCodeFont-Regular")
+        var resourceName = faceName switch
         {
-            return Resource.RobotoMono_Regular;
-        }
+            "OpenCodeFont-Bold" => "Telegram2OpenCode.Resources.RobotoMono-Bold.ttf",
+            "OpenCodeFont-Regular" => "Telegram2OpenCode.Resources.RobotoMono-Regular.ttf",
+            _ => null
+        };
 
-        return null;
+        if (resourceName is null)
+            return null;
+
+        using var stream = Assembly.GetManifestResourceStream(resourceName);
+        if (stream is null)
+            return null;
+
+        using var ms = new MemoryStream();
+        stream.CopyTo(ms);
+        var bytes = ms.ToArray();
+        Cache[faceName] = bytes;
+        return bytes;
     }
 }
