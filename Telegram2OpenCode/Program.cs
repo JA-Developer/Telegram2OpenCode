@@ -25,6 +25,7 @@ builder.Services.AddSingleton<OpenCodeManager>();
 builder.Services.AddSingleton<OpenCodeRunner>();
 builder.Services.AddSingleton<VibeUtils>();
 builder.Services.AddSingleton<ChatSessionService>();
+builder.Services.AddSingleton<DiffSummaryBuilder>();
 builder.Services.AddSingleton<IStateHandler, InitialMenuHandler>();
 builder.Services.AddSingleton<IStateHandler, SelectingSessionHandler>();
 builder.Services.AddSingleton<IStateHandler, AwaitingFolderHandler>();

@@ -1,4 +1,3 @@
-using System.Text;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -10,12 +9,14 @@ namespace Telegram2OpenCode.Services.Handlers;
 public sealed class ChatHandler : IStateHandler
 {
     private readonly OpenCodeManager _openCode;
+    private readonly DiffSummaryBuilder _diffSummary;
 
     public ChatState State => ChatState.Chat;
 
-    public ChatHandler(OpenCodeManager openCode)
+    public ChatHandler(OpenCodeManager openCode, DiffSummaryBuilder diffSummary)
     {
         _openCode = openCode;
+        _diffSummary = diffSummary;
     }
 
     public async Task HandleAsync(ITelegramBotClient botClient, Message message, TelegramChatSession session, IChatSessionRepository sessionRepo, string cleanedText, CancellationToken ct)
@@ -48,7 +49,7 @@ public sealed class ChatHandler : IStateHandler
                     ct)
                 ?? "No response from OpenCode.";
 
-            var diffText = BuildDiffSummary(editEvents);
+            var diffText = _diffSummary.Build(editEvents);
             var finalText = diffText is null ? reply : $"{reply}\n\n{diffText}";
 
             await botClient.SendMessage(
@@ -66,20 +67,5 @@ public sealed class ChatHandler : IStateHandler
                 cancellationToken: ct
             );
         }
-    }
-
-    private static string? BuildDiffSummary(List<EditEvent> editEvents)
-    {
-        if (editEvents.Count == 0)
-            return null;
-
-        var lines = new StringBuilder();
-        lines.AppendLine("━━━ Modified Files ━━━");
-        foreach (var edit in editEvents)
-        {
-            var icon = edit.Tool == "write" ? "🆕" : edit.Deletions > 0 && edit.Additions == 0 ? "➖" : edit.Additions > 0 && edit.Deletions == 0 ? "➕" : "✏️";
-            lines.AppendLine($"{icon} {edit.FilePath} (+{edit.Additions}/-{edit.Deletions})");
-        }
-        return lines.ToString();
     }
 }
