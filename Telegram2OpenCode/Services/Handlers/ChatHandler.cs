@@ -10,13 +10,15 @@ public sealed class ChatHandler : IStateHandler
 {
     private readonly OpenCodeManager _openCode;
     private readonly DiffSummaryBuilder _diffSummary;
+    private readonly PdfReportService _pdfReport;
 
     public ChatState State => ChatState.Chat;
 
-    public ChatHandler(OpenCodeManager openCode, DiffSummaryBuilder diffSummary)
+    public ChatHandler(OpenCodeManager openCode, DiffSummaryBuilder diffSummary, PdfReportService pdfReport)
     {
         _openCode = openCode;
         _diffSummary = diffSummary;
+        _pdfReport = pdfReport;
     }
 
     public async Task HandleAsync(ITelegramBotClient botClient, Message message, TelegramChatSession session, IChatSessionRepository sessionRepo, string cleanedText, CancellationToken ct)
@@ -58,6 +60,19 @@ public sealed class ChatHandler : IStateHandler
                 replyParameters: message.Id,
                 cancellationToken: ct
             );
+
+            if (editEvents.Count > 0)
+            {
+                var pdfBytes = _pdfReport.GenerateReport(editEvents, session.OpenCodeSessionId);
+                using var ms = new MemoryStream(pdfBytes);
+                await botClient.SendDocument(
+                    chatId: chatId,
+                    document: InputFile.FromStream(ms, "cambios.pdf"),
+                    caption: "Detalle de cambios realizados",
+                    replyParameters: message.Id,
+                    cancellationToken: ct
+                );
+            }
         }
         catch (Exception ex)
         {

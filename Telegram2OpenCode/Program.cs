@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PdfSharp.Fonts;
 using Telegram2OpenCode.Components;
 using Telegram2OpenCode.Data;
 using Telegram2OpenCode.Repositories;
@@ -7,6 +8,8 @@ using Telegram2OpenCode.Services.Handlers;
 using Telegram2OpenCode.Services.OpenCodeServerLoader;
 
 var builder = WebApplication.CreateBuilder(args);
+
+GlobalFontSettings.FontResolver = new RobotoMonoFontResolver();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -26,6 +29,7 @@ builder.Services.AddSingleton<OpenCodeRunner>();
 builder.Services.AddSingleton<VibeUtils>();
 builder.Services.AddSingleton<ChatSessionService>();
 builder.Services.AddSingleton<DiffSummaryBuilder>();
+builder.Services.AddSingleton<PdfReportService>();
 builder.Services.AddSingleton<IStateHandler, InitialMenuHandler>();
 builder.Services.AddSingleton<IStateHandler, SelectingSessionHandler>();
 builder.Services.AddSingleton<IStateHandler, AwaitingFolderHandler>();
